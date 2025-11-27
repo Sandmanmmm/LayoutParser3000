@@ -1,0 +1,323 @@
+# LayoutLMv3 Training Configuration - Production
+# Fine-tuning configuration for invoice and purchase order documents
+# Multi-task: Token Classification (NER) + Table Structure Detection
+
+experiment_name: layoutlmv3_invoice_po_multitask
+
+# Model Configuration
+model:
+  name: "microsoft/layoutlmv3-base"
+  # Alternative: "microsoft/layoutlmv3-large"
+  num_labels: 115  # 57 entity types * 2 (B-/I-) + 1 (O) = 115 labels (production-grade)
+  use_crf: true  # Use CRF layer for better sequential predictions
+  dropout: 0.1
+  attention_dropout: 0.1
+  
+  # Multi-task heads
+  token_classification:
+    enabled: true
+    num_labels: 115  # Production: 57 entities × 2 + O
+  
+  table_structure:
+    enabled: true
+    table_num_cols: 16  # Maximum expected columns in invoice tables
+    cell_detection: true  # Binary: in-cell vs not-in-cell
+    col_classification: true  # Predict approximate column index
+
+# Training Configuration
+training:
+  output_dir: "./models/checkpoints/layoutlmv3_invoice_multitask"
+  num_epochs: 12  # Production: 12 epochs typically sufficient
+  per_device_train_batch_size: 2  # Reduce if OOM
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8  # Effective batch = 2 * 8 = 16
+  
+  # Learning Rate Configuration
+  learning_rate: 3e-5  # Slightly lower for fine-tuning
+  weight_decay: 0.01
+  warmup_ratio: 0.06  # 6% warmup
+  lr_scheduler_type: "cosine"  # Options: linear, cosine, polynomial
+  
+  # Mixed Precision Training
+  fp16: true  # Enable automatic mixed precision
+  fp16_opt_level: "O1"  # O1: mixed precision, O2: almost fp16
+  
+  # Optimization
+  max_grad_norm: 1.0  # Gradient clipping
+  adam_epsilon: 1e-8
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  
+  # Checkpointing
+  save_strategy: "steps"
+  save_steps: 500
+  save_total_limit: 5  # Keep only best 5 checkpoints
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_f1"
+  greater_is_better: true
+  
+  # Evaluation
+  evaluation_strategy: "steps"
+  eval_steps: 500
+  logging_steps: 50
+  
+  # Early Stopping
+  early_stopping_patience: 5
+  early_stopping_threshold: 0.001
+  
+  # Seed
+  seed: 42
+  dataloader_num_workers: 4
+
+# Loss Weights (multi-task)
+loss_weights:
+  ner_loss_weight: 1.0
+  cell_loss_weight: 1.0
+  col_loss_weight: 0.5
+
+# Data Configuration
+data:
+  train_json: "./data/processed/train.jsonl"
+  val_json: "./data/processed/val.jsonl"
+  test_json: "./data/processed/test.jsonl"
+  annotations_path: "./data/annotations"
+  label_list_path: "./configs/label_list.txt"
+  
+  tokenizer_max_length: 1024
+  max_seq_length: 1024
+  doc_stride: 128  # For sliding window on long documents
+  image_size: [1408, 1024]  # [width, height] for LayoutLMv3
+  ocr_language: "eng"
+  
+  # Class weights for imbalanced data
+  use_class_weights: true
+  
+  # Data loading
+  num_workers: 4
+  prefetch_factor: 2
+
+# Augmentation Configuration
+augmentation:
+  enabled: true
+  
+  # Image augmentations (albumentations)
+  image_transforms:
+    - name: "RandomBrightnessContrast"
+      p: 0.3
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+    
+    - name: "GaussianBlur"
+      p: 0.2
+      blur_limit: [3, 5]
+    
+    - name: "GaussNoise"
+      p: 0.2
+      var_limit: [10, 50]
+    
+    - name: "Rotate"
+      p: 0.3
+      limit: 3  # Small rotation for document alignment variance
+    
+    - name: "RandomScale"
+      p: 0.3
+      scale_limit: 0.1
+  
+  # Text augmentations
+  text_transforms:
+    synonym_replacement: 0.1
+    random_deletion: 0.05
+    ocr_error_simulation: 0.15  # Simulate OCR errors
+
+# Label Schema - Production-Grade (115 labels: 57 entities × 2 + O)
+# Three-layer architecture: Global Headers + Line Items + Structural
+labels:
+  label_list:
+    - "O"
+    
+    # ========== LAYER 1: GLOBAL HEADER FIELDS (Document-level) ==========
+    # Invoice/PO identifiers
+    - "B-INVOICE_NUMBER"
+    - "I-INVOICE_NUMBER"
+    - "B-PO_NUMBER"
+    - "I-PO_NUMBER"
+    - "B-INVOICE_TYPE"
+    - "I-INVOICE_TYPE"
+    
+    # Dates
+    - "B-INVOICE_DATE"
+    - "I-INVOICE_DATE"
+    - "B-DUE_DATE"
+    - "I-DUE_DATE"
+    - "B-DELIVERY_DATE"
+    - "I-DELIVERY_DATE"
+    
+    # Vendor/Supplier information
+    - "B-VENDOR_NAME"
+    - "I-VENDOR_NAME"
+    - "B-VENDOR_ADDRESS"
+    - "I-VENDOR_ADDRESS"
+    - "B-VENDOR_CITY"
+    - "I-VENDOR_CITY"
+    - "B-VENDOR_COUNTRY"
+    - "I-VENDOR_COUNTRY"
+    - "B-VENDOR_POSTAL"
+    - "I-VENDOR_POSTAL"
+    - "B-VENDOR_TAX_ID"
+    - "I-VENDOR_TAX_ID"
+    - "B-VENDOR_PHONE"
+    - "I-VENDOR_PHONE"
+    - "B-VENDOR_EMAIL"
+    - "I-VENDOR_EMAIL"
+    
+    # Buyer/Customer information
+    - "B-BUYER_NAME"
+    - "I-BUYER_NAME"
+    - "B-BUYER_ADDRESS"
+    - "I-BUYER_ADDRESS"
+    - "B-BUYER_CITY"
+    - "I-BUYER_CITY"
+    - "B-BUYER_COUNTRY"
+    - "I-BUYER_COUNTRY"
+    - "B-BUYER_POSTAL"
+    - "I-BUYER_POSTAL"
+    - "B-BUYER_TAX_ID"
+    - "I-BUYER_TAX_ID"
+    
+    # Ship-to information (if different from buyer)
+    - "B-SHIP_TO_NAME"
+    - "I-SHIP_TO_NAME"
+    - "B-SHIP_TO_ADDRESS"
+    - "I-SHIP_TO_ADDRESS"
+    
+    # Financial totals
+    - "B-SUBTOTAL"
+    - "I-SUBTOTAL"
+    - "B-TAX_AMOUNT"
+    - "I-TAX_AMOUNT"
+    - "B-TAX_RATE"
+    - "I-TAX_RATE"
+    - "B-SHIPPING_COST"
+    - "I-SHIPPING_COST"
+    - "B-DISCOUNT_AMOUNT"
+    - "I-DISCOUNT_AMOUNT"
+    - "B-TOTAL_AMOUNT"
+    - "I-TOTAL_AMOUNT"
+    - "B-CURRENCY"
+    - "I-CURRENCY"
+    
+    # Payment information
+    - "B-PAYMENT_TERMS"
+    - "I-PAYMENT_TERMS"
+    - "B-PAYMENT_METHOD"
+    - "I-PAYMENT_METHOD"
+    - "B-BANK_ACCOUNT"
+    - "I-BANK_ACCOUNT"
+    - "B-IBAN"
+    - "I-IBAN"
+    - "B-SWIFT_CODE"
+    - "I-SWIFT_CODE"
+    
+    # References
+    - "B-ORDER_REFERENCE"
+    - "I-ORDER_REFERENCE"
+    - "B-CUSTOMER_ID"
+    - "I-CUSTOMER_ID"
+    - "B-CONTRACT_NUMBER"
+    - "I-CONTRACT_NUMBER"
+    
+    # ========== LAYER 2: LINE-ITEM FIELDS (Repeatable per row) ==========
+    - "B-ITEM_DESCRIPTION"
+    - "I-ITEM_DESCRIPTION"
+    - "B-ITEM_SKU"
+    - "I-ITEM_SKU"
+    - "B-ITEM_QUANTITY"
+    - "I-ITEM_QUANTITY"
+    - "B-ITEM_UOM"
+    - "I-ITEM_UOM"
+    - "B-ITEM_UNIT_PRICE"
+    - "I-ITEM_UNIT_PRICE"
+    - "B-ITEM_TOTAL_AMOUNT"
+    - "I-ITEM_TOTAL_AMOUNT"
+    - "B-ITEM_TAX"
+    - "I-ITEM_TAX"
+    - "B-ITEM_DISCOUNT"
+    - "I-ITEM_DISCOUNT"
+    - "B-ITEM_CODE"
+    - "I-ITEM_CODE"
+    
+    # ========== LAYER 3: STRUCTURAL LABELS (Layout & Grouping) ==========
+    # Table structure
+    - "B-TABLE"
+    - "I-TABLE"
+    - "B-TABLE_HEADER"
+    - "I-TABLE_HEADER"
+    - "B-LINE_ITEM_ROW"
+    - "I-LINE_ITEM_ROW"
+    
+    # Address blocks (for grouping multi-line addresses)
+    - "B-ADDRESS_BLOCK_VENDOR"
+    - "I-ADDRESS_BLOCK_VENDOR"
+    - "B-ADDRESS_BLOCK_BUYER"
+    - "I-ADDRESS_BLOCK_BUYER"
+    
+    # Special sections
+    - "B-PAYMENT_TERMS_BLOCK"
+    - "I-PAYMENT_TERMS_BLOCK"
+    - "B-NOTES_BLOCK"
+    - "I-NOTES_BLOCK"
+    
+    # Noise suppression
+    - "B-PAGE_HEADER"
+    - "I-PAGE_HEADER"
+    - "B-PAGE_FOOTER"
+    - "I-PAGE_FOOTER"
+    - "B-WATERMARK"
+    - "I-WATERMARK"
+    - "B-NOISE"
+    - "I-NOISE"
+
+# Evaluation Metrics
+evaluation:
+  metrics:
+    - seqeval  # Token-level NER (precision/recall/F1)
+    - f1_by_entity  # Per-entity F1 scores
+    - line_item_precision  # Structured record extraction
+    - table_detection_iou  # Table bounding box IoU
+
+# Preprocessing
+preprocessing:
+  ocr:
+    engine: tesseract  # or paddle if installed
+    deskew: true
+    denoise: true
+  image_augmentations:
+    - rotate: [-2, 2]
+    - brightness: [0.9, 1.1]
+    - gaussian_noise: [0, 0.02]
+
+# Logging Configuration
+logging:
+  use_wandb: true
+  wandb_project: "layoutlmv3-invoice-po-multitask"
+  wandb_entity: null  # Set your wandb username
+  
+  use_tensorboard: true
+  tensorboard_dir: "./logs/tensorboard"
+  
+  log_predictions: true
+  log_prediction_frequency: 100  # Log every N steps
+
+# Hardware Configuration
+hardware:
+  device: "cuda"  # cuda, cpu, or mps (for Apple Silicon)
+  num_gpus: 1
+  distributed: false
+  
+  # Memory optimization
+  gradient_checkpointing: true  # Trade compute for memory
+  pin_memory: true
+
+# Reproducibility
+seed: 42
+deterministic: true

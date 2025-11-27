@@ -1,0 +1,207 @@
+{
+  "metadata": {
+    "file_name": "test_invoice.png",
+    "document_type": "invoice",
+    "pages": 1,
+    "image_width": 800,
+    "image_height": 1000
+  },
+  "ocr": [
+    {
+      "token_id": 0,
+      "text": "Invoice",
+      "bbox": [
+        50,
+        50,
+        150,
+        80
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 1,
+      "text": "Number:",
+      "bbox": [
+        160,
+        50,
+        240,
+        80
+      ],
+      "page": 1,
+      "confidence": 0.98
+    },
+    {
+      "token_id": 2,
+      "text": "INV-1234",
+      "bbox": [
+        250,
+        50,
+        350,
+        80
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 3,
+      "text": "SKU",
+      "bbox": [
+        50,
+        200,
+        100,
+        230
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 4,
+      "text": "Description",
+      "bbox": [
+        150,
+        200,
+        300,
+        230
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 5,
+      "text": "ABC-100",
+      "bbox": [
+        50,
+        240,
+        140,
+        270
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 6,
+      "text": "Widget",
+      "bbox": [
+        150,
+        240,
+        220,
+        270
+      ],
+      "page": 1,
+      "confidence": 0.99
+    },
+    {
+      "token_id": 7,
+      "text": "Pack",
+      "bbox": [
+        230,
+        240,
+        280,
+        270
+      ],
+      "page": 1,
+      "confidence": 0.98
+    }
+  ],
+  "ner_tags": [
+    "O",
+    "O",
+    "B-INVOICE_NUMBER",
+    "O",
+    "O",
+    "B-ITEM_SKU",
+    "B-ITEM_DESCRIPTION",
+    "I-ITEM_DESCRIPTION"
+  ],
+  "tables": [
+    {
+      "table_id": "t1",
+      "bbox": [
+        50,
+        200,
+        700,
+        300
+      ],
+      "page": 1,
+      "num_rows": 2,
+      "num_cols": 2,
+      "cells": [
+        {
+          "cell_id": "t1_r0_c0",
+          "row": 0,
+          "col": 0,
+          "bbox": [
+            50,
+            200,
+            100,
+            230
+          ],
+          "text": "SKU",
+          "token_ids": [
+            3
+          ],
+          "is_header": true
+        },
+        {
+          "cell_id": "t1_r0_c1",
+          "row": 0,
+          "col": 1,
+          "bbox": [
+            150,
+            200,
+            300,
+            230
+          ],
+          "text": "Description",
+          "token_ids": [
+            4
+          ],
+          "is_header": true
+        },
+        {
+          "cell_id": "t1_r1_c0",
+          "row": 1,
+          "col": 0,
+          "bbox": [
+            50,
+            240,
+            140,
+            270
+          ],
+          "text": "ABC-100",
+          "token_ids": [
+            5
+          ],
+          "is_header": false
+        },
+        {
+          "cell_id": "t1_r1_c1",
+          "row": 1,
+          "col": 1,
+          "bbox": [
+            150,
+            240,
+            300,
+            270
+          ],
+          "text": "Widget Pack",
+          "token_ids": [
+            6,
+            7
+          ],
+          "is_header": false
+        }
+      ]
+    }
+  ],
+  "ground_truth": {
+    "INVOICE_NUMBER": "INV-1234",
+    "line_items": [
+      {
+        "ITEM_SKU": "ABC-100",
+        "ITEM_DESCRIPTION": "Widget Pack"
+      }
+    ]
+  }
+}

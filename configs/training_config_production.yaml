@@ -1,0 +1,214 @@
+# Production Training Configuration - LayoutLMv3 for Invoice/PO Multi-Task
+# Optimized for purchase orders and receipts with 49-label NER + table structure
+
+experiment_name: layoutlmv3_invoice_po_production
+
+# Model Configuration
+model:
+  model_name_or_path: microsoft/layoutlmv3-base  # 125M parameters
+  custom_model_class: models.layoutlmv3_model.LayoutLMv3ForMultiTask
+  num_labels: 49  # O + 24 entity types × 2 (B-/I-) = 49 labels
+  use_crf: true  # CRF improves boundary precision
+  table_num_cols: 16  # Maximum expected columns in tables
+  
+  # Architecture settings
+  hidden_dropout_prob: 0.1
+  attention_probs_dropout_prob: 0.1
+
+# Data Configuration
+data:
+  train_json: data/processed/train.jsonl
+  val_json: data/processed/val.jsonl
+  test_json: data/processed/test.jsonl
+  label_list_path: configs/label_list_production.txt
+  
+  # Tokenization
+  tokenizer_max_length: 1024  # Increase if documents are very long
+  stride: 128  # For documents > max_length
+  
+  # Image processing
+  image_size: [1408, 1024]  # Width × Height (LayoutLMv3 default)
+  apply_ocr: false  # We provide pre-computed OCR
+  
+  # OCR settings (if using external OCR)
+  ocr:
+    engine: tesseract  # or 'paddle', 'azure', 'google'
+    language: eng
+    deskew: true
+    denoise: true
+
+# Label Schema (mirrored in label_list_production.txt)
+labels:
+  num_labels: 49
+  label_list:
+    - "O"
+    # Document-level fields
+    - "B-SUPPLIER_NAME"
+    - "I-SUPPLIER_NAME"
+    - "B-SUPPLIER_ADDRESS"
+    - "I-SUPPLIER_ADDRESS"
+    - "B-BUYER_NAME"
+    - "I-BUYER_NAME"
+    - "B-BUYER_ADDRESS"
+    - "I-BUYER_ADDRESS"
+    - "B-DOCUMENT_NUMBER"
+    - "I-DOCUMENT_NUMBER"
+    - "B-DOCUMENT_DATE"
+    - "I-DOCUMENT_DATE"
+    - "B-DUE_DATE"
+    - "I-DUE_DATE"
+    - "B-CURRENCY"
+    - "I-CURRENCY"
+    - "B-SUBTOTAL"
+    - "I-SUBTOTAL"
+    - "B-TAX"
+    - "I-TAX"
+    - "B-SHIPPING"
+    - "I-SHIPPING"
+    - "B-TOTAL_AMOUNT"
+    - "I-TOTAL_AMOUNT"
+    - "B-PAYMENT_TERMS"
+    - "I-PAYMENT_TERMS"
+    - "B-ORDER_REFERENCE"
+    - "I-ORDER_REFERENCE"
+    - "B-VENDOR_TAX_ID"
+    - "I-VENDOR_TAX_ID"
+    - "B-ACCOUNT_NUMBER"
+    - "I-ACCOUNT_NUMBER"
+    # Line-item fields
+    - "B-ITEM_DESCRIPTION"
+    - "I-ITEM_DESCRIPTION"
+    - "B-SKU"
+    - "I-SKU"
+    - "B-QUANTITY"
+    - "I-QUANTITY"
+    - "B-UOM"
+    - "I-UOM"
+    - "B-UNIT_PRICE"
+    - "I-UNIT_PRICE"
+    - "B-LINE_TOTAL"
+    - "I-LINE_TOTAL"
+    - "B-PACK_SIZE"
+    - "I-PACK_SIZE"
+    - "B-UNIT_COST"
+    - "I-UNIT_COST"
+
+# Training Configuration
+training:
+  output_dir: models/checkpoints/layoutlmv3_production
+  num_epochs: 12
+  
+  # Batch sizes
+  per_device_train_batch_size: 2  # Reduce to 1 if OOM
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8  # Effective batch = 2 × 8 = 16
+  
+  # Optimization
+  learning_rate: 3e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.06  # 6% of training steps
+  lr_scheduler_type: cosine
+  max_grad_norm: 1.0
+  
+  # Adam optimizer settings
+  adam_epsilon: 1e-8
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  
+  # Mixed precision
+  fp16: true
+  fp16_opt_level: O1
+  
+  # Logging and checkpointing
+  logging_steps: 50
+  eval_steps: 500
+  save_steps: 500
+  save_strategy: steps
+  save_total_limit: 5
+  
+  # Early stopping
+  early_stopping_patience: 3
+  metric_for_best_model: eval_composite_f1
+  greater_is_better: true
+  
+  # Reproducibility
+  seed: 42
+  dataloader_num_workers: 4
+
+# Multi-Task Loss Weights
+loss_weights:
+  ner_loss_weight: 1.0    # Primary task: entity extraction
+  cell_loss_weight: 1.0   # Table cell detection
+  col_loss_weight: 0.5    # Column classification (less critical)
+
+# Evaluation Metrics
+evaluation:
+  metrics:
+    - seqeval              # Token-level NER F1
+    - f1_by_entity         # Per-entity F1 scores
+    - line_item_precision  # Structured line-item extraction
+    - table_detection_iou  # Table bounding box accuracy
+
+# Preprocessing & Augmentation
+preprocessing:
+  # Image augmentations (applied during training only)
+  image_augmentations:
+    enabled: true
+    augmentations:
+      - rotate: [-2, 2]           # Slight rotation (degrees)
+      - brightness: [0.9, 1.1]    # Brightness adjustment
+      - contrast: [0.9, 1.1]      # Contrast adjustment
+      - gaussian_noise: [0, 0.02] # Add subtle noise
+      - jpeg_compression: [85, 95] # Simulate scan artifacts
+  
+  # Text normalization
+  text_normalization:
+    lowercase: false        # Keep original case
+    remove_accents: false
+    strip_special_chars: false
+
+# Logging Configuration
+logging:
+  tensorboard_enabled: true
+  tensorboard_dir: logs/tensorboard
+  
+  wandb_enabled: false  # Set true if using Weights & Biases
+  wandb_project: layoutlmv3-invoice-production
+  wandb_entity: your-username
+  wandb_run_name: null  # Auto-generate if null
+
+# Output Configuration
+output:
+  # Prediction confidence thresholds
+  confidence_threshold: 0.85  # Match AISettings.confidenceThreshold
+  min_entity_confidence: 0.70  # Per-entity minimum
+  
+  # Output format
+  output_format: json
+  save_predictions: true
+  save_visualizations: false  # Set true to save annotated images
+
+# Production Inference Settings
+inference:
+  batch_size: 4
+  use_cuda: true
+  num_workers: 2
+  
+  # Post-processing
+  merge_subwords: true
+  apply_heuristics: true
+  validate_extracted_fields: true
+  
+  # Field validation rules
+  validation:
+    DOCUMENT_NUMBER:
+      required: true
+      pattern: "^[A-Z0-9-]+$"
+    TOTAL_AMOUNT:
+      required: true
+      type: decimal
+      min: 0
+    DOCUMENT_DATE:
+      required: true
+      type: date
+      format: "YYYY-MM-DD"

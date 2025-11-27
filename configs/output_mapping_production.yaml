@@ -1,0 +1,376 @@
+# Output Mapping Configuration - Production
+# Maps extracted NER entities to PurchaseOrder and POLineItem database schema
+
+# Purchase Order / Invoice Document-Level Fields
+purchase_order_mapping:
+  SUPPLIER_NAME:
+    field: supplierName
+    db_field: PurchaseOrder.supplierName
+    type: string
+    required: true
+    max_length: 255
+  
+  SUPPLIER_ADDRESS:
+    field: supplierAddress
+    db_field: PurchaseOrder.supplierAddress
+    type: string
+    required: false
+    max_length: 500
+  
+  BUYER_NAME:
+    field: buyerName
+    db_field: PurchaseOrder.buyerName
+    type: string
+    required: false
+    max_length: 255
+  
+  BUYER_ADDRESS:
+    field: buyerAddress
+    db_field: PurchaseOrder.buyerAddress
+    type: string
+    required: false
+    max_length: 500
+  
+  DOCUMENT_NUMBER:
+    field: number
+    db_field: PurchaseOrder.number
+    type: string
+    required: true
+    max_length: 100
+    validation:
+      pattern: "^[A-Z0-9-]+$"
+  
+  DOCUMENT_DATE:
+    field: orderDate
+    db_field: PurchaseOrder.orderDate
+    type: date
+    required: true
+    format: "YYYY-MM-DD"
+    parse_formats:
+      - "%Y-%m-%d"
+      - "%m/%d/%Y"
+      - "%d/%m/%Y"
+      - "%B %d, %Y"
+  
+  DUE_DATE:
+    field: dueDate
+    db_field: PurchaseOrder.dueDate
+    type: date
+    required: false
+    format: "YYYY-MM-DD"
+  
+  CURRENCY:
+    field: currency
+    db_field: PurchaseOrder.currency
+    type: string
+    required: false
+    default: "USD"
+    max_length: 3
+    validation:
+      enum: ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CNY"]
+  
+  SUBTOTAL:
+    field: subtotal
+    db_field: PurchaseOrder.subtotal
+    type: decimal
+    required: false
+    parse: currency  # Remove $, commas, etc.
+    decimal_places: 2
+  
+  TAX:
+    field: tax
+    db_field: PurchaseOrder.tax
+    type: decimal
+    required: false
+    parse: currency
+    decimal_places: 2
+  
+  SHIPPING:
+    field: shippingCost
+    db_field: PurchaseOrder.shippingCost
+    type: decimal
+    required: false
+    parse: currency
+    decimal_places: 2
+  
+  TOTAL_AMOUNT:
+    field: totalAmount
+    db_field: PurchaseOrder.totalAmount
+    type: decimal
+    required: true
+    parse: currency
+    decimal_places: 2
+    validation:
+      min: 0
+      max: 9999999.99
+  
+  PAYMENT_TERMS:
+    field: paymentTerms
+    db_field: PurchaseOrder.paymentTerms
+    type: string
+    required: false
+    max_length: 200
+  
+  ORDER_REFERENCE:
+    field: orderReference
+    db_field: PurchaseOrder.orderReference
+    type: string
+    required: false
+    max_length: 100
+  
+  VENDOR_TAX_ID:
+    field: vendorTaxId
+    db_field: PurchaseOrder.vendorTaxId
+    type: string
+    required: false
+    max_length: 50
+  
+  ACCOUNT_NUMBER:
+    field: accountNumber
+    db_field: PurchaseOrder.accountNumber
+    type: string
+    required: false
+    max_length: 50
+
+# Line Item Fields (Repeatable, mapped to POLineItem table)
+line_item_mapping:
+  ITEM_DESCRIPTION:
+    field: productName
+    db_field: POLineItem.productName
+    type: string
+    required: true
+    max_length: 500
+    aliases:
+      - description
+      - itemDescription
+  
+  SKU:
+    field: sku
+    db_field: POLineItem.sku
+    type: string
+    required: false
+    max_length: 100
+    aliases:
+      - itemCode
+      - productCode
+  
+  QUANTITY:
+    field: quantity
+    db_field: POLineItem.quantity
+    type: decimal
+    required: true
+    decimal_places: 2
+    validation:
+      min: 0
+      max: 999999
+  
+  UOM:
+    field: uom
+    db_field: POLineItem.uom
+    type: string
+    required: false
+    max_length: 20
+    default: "EA"
+    aliases:
+      - unit
+      - unitOfMeasure
+  
+  UNIT_PRICE:
+    field: unitCost
+    db_field: POLineItem.unitCost
+    type: decimal
+    required: true
+    parse: currency
+    decimal_places: 2
+    aliases:
+      - unitPrice
+      - pricePerUnit
+  
+  LINE_TOTAL:
+    field: totalCost
+    db_field: POLineItem.totalCost
+    type: decimal
+    required: true
+    parse: currency
+    decimal_places: 2
+    aliases:
+      - lineAmount
+      - amount
+  
+  PACK_SIZE:
+    field: packSize
+    db_field: POLineItem.packSize
+    type: string
+    required: false
+    max_length: 50
+  
+  UNIT_COST:
+    field: unitCost
+    db_field: POLineItem.unitCost
+    type: decimal
+    required: false
+    parse: currency
+    decimal_places: 2
+    note: "Alias to UNIT_PRICE for compatibility"
+
+# Prisma Schema Mapping (for reference)
+# model PurchaseOrder {
+#   id                String         @id @default(cuid())
+#   merchantId        String
+#   number            String         // DOCUMENT_NUMBER
+#   supplierName      String         // SUPPLIER_NAME
+#   orderDate         DateTime       // DOCUMENT_DATE
+#   dueDate           DateTime?      // DUE_DATE
+#   totalAmount       Decimal        // TOTAL_AMOUNT
+#   currency          String         // CURRENCY
+#   supplierAddress   String?        // SUPPLIER_ADDRESS
+#   buyerName         String?        // BUYER_NAME
+#   buyerAddress      String?        // BUYER_ADDRESS
+#   paymentTerms      String?        // PAYMENT_TERMS
+#   orderReference    String?        // ORDER_REFERENCE
+#   vendorTaxId       String?        // VENDOR_TAX_ID
+#   accountNumber     String?        // ACCOUNT_NUMBER
+#   subtotal          Decimal?       // SUBTOTAL
+#   tax               Decimal?       // TAX
+#   shippingCost      Decimal?       // SHIPPING
+#   rawData           Json?
+#   confidence        Float?
+#   lineItems         POLineItem[]
+# }
+#
+# model POLineItem {
+#   id              String         @id @default(cuid())
+#   purchaseOrderId String
+#   purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
+#   sku             String?        // SKU
+#   productName     String         // ITEM_DESCRIPTION
+#   quantity        Decimal        // QUANTITY
+#   unitCost        Decimal        // UNIT_PRICE / UNIT_COST
+#   totalCost       Decimal        // LINE_TOTAL
+#   uom             String?        // UOM
+#   packSize        String?        // PACK_SIZE
+#   orderIndex      Int
+#   confidence      Float?
+# }
+
+# Post-Processing Rules
+post_processing:
+  # Merge multi-token entities
+  merge_tokens: true
+  
+  # Validate field consistency
+  validation_rules:
+    # LINE_TOTAL should equal QUANTITY × UNIT_PRICE (within tolerance)
+    - rule: line_total_consistency
+      formula: "abs(LINE_TOTAL - (QUANTITY * UNIT_PRICE)) < 0.01"
+      action: warn  # or 'reject', 'correct'
+    
+    # TOTAL_AMOUNT should be close to sum of LINE_TOTAL
+    - rule: total_amount_consistency
+      formula: "abs(TOTAL_AMOUNT - sum(LINE_TOTAL)) < TOTAL_AMOUNT * 0.05"
+      action: warn
+    
+    # DATE validation
+    - rule: date_order
+      formula: "DOCUMENT_DATE <= DUE_DATE"
+      action: warn
+  
+  # Currency parsing
+  currency_symbols:
+    "$": "USD"
+    "€": "EUR"
+    "£": "GBP"
+    "¥": "JPY"
+    "C$": "CAD"
+    "A$": "AUD"
+  
+  # Number parsing
+  decimal_separators:
+    - ","  # Thousands separator
+    - "."  # Decimal separator
+  
+  # Date parsing priority
+  date_formats_priority:
+    - "%Y-%m-%d"      # ISO format (highest priority)
+    - "%m/%d/%Y"      # US format
+    - "%d/%m/%Y"      # European format
+    - "%B %d, %Y"     # Long format
+    - "%b %d, %Y"     # Short month
+    - "%d-%b-%Y"      # Mixed
+
+# Confidence Thresholding (matches AISettings table)
+confidence:
+  # Document-level confidence (average of all entity confidences)
+  document_confidence_threshold: 0.85
+  
+  # Per-entity minimum confidence
+  entity_confidence_threshold: 0.70
+  
+  # Critical fields (must exceed higher threshold)
+  critical_fields:
+    DOCUMENT_NUMBER: 0.90
+    TOTAL_AMOUNT: 0.85
+    SUPPLIER_NAME: 0.80
+  
+  # Low confidence handling
+  low_confidence_action: manual_review  # or 'reject', 'auto_approve'
+
+# Output JSON Template
+output_template:
+  purchase_order:
+    number: null
+    supplierName: null
+    supplierAddress: null
+    buyerName: null
+    buyerAddress: null
+    orderDate: null
+    dueDate: null
+    totalAmount: null
+    currency: "USD"
+    subtotal: null
+    tax: null
+    shippingCost: null
+    paymentTerms: null
+    orderReference: null
+    vendorTaxId: null
+    accountNumber: null
+    rawData:
+      tokens: []
+      tables: []
+      image_path: null
+    confidence: null
+  
+  line_items: []  # Array of POLineItem objects
+  
+  metadata:
+    extraction_timestamp: null
+    model_version: null
+    processing_time_ms: null
+
+# Example Output JSON
+example_output:
+  purchase_order:
+    number: "PO-1234"
+    supplierName: "Acme Supplies"
+    orderDate: "2025-11-01"
+    dueDate: "2025-11-10"
+    totalAmount: 1234.56
+    currency: "USD"
+    confidence: 0.92
+  line_items:
+    - sku: "ABC-100"
+      productName: "Widget 10 pack"
+      quantity: 5.0
+      unitCost: 10.00
+      totalCost: 50.00
+      uom: "EA"
+      orderIndex: 0
+      confidence: 0.89
+    - sku: "XYZ-200"
+      productName: "Gadget X"
+      quantity: 2.0
+      unitCost: 200.00
+      totalCost: 400.00
+      uom: "EA"
+      orderIndex: 1
+      confidence: 0.92

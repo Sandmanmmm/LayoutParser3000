@@ -1,0 +1,190 @@
+# Output Mapping Configuration
+# Maps extracted NER entities to database schema (PurchaseOrder + POLineItem)
+
+# Purchase Order / Invoice document-level fields
+purchase_order_mapping:
+  DOCUMENT_NUMBER: 
+    field: "number"
+    type: "string"
+    required: true
+  
+  SUPPLIER_NAME:
+    field: "supplierName"
+    type: "string"
+    required: true
+  
+  SUPPLIER_ADDRESS:
+    field: "supplierAddress"
+    type: "string"
+    required: false
+  
+  BUYER_NAME:
+    field: "buyerName"
+    type: "string"
+    required: false
+  
+  BUYER_ADDRESS:
+    field: "buyerAddress"
+    type: "string"
+    required: false
+  
+  DOCUMENT_DATE:
+    field: "orderDate"
+    type: "date"
+    required: true
+    format: "YYYY-MM-DD"
+  
+  DUE_DATE:
+    field: "dueDate"
+    type: "date"
+    required: false
+    format: "YYYY-MM-DD"
+  
+  TOTAL_AMOUNT:
+    field: "totalAmount"
+    type: "decimal"
+    required: true
+    parse: "currency"  # Parse as currency (remove commas, $, etc.)
+  
+  CURRENCY:
+    field: "currency"
+    type: "string"
+    required: false
+    default: "USD"
+  
+  SUBTOTAL:
+    field: "subtotal"
+    type: "decimal"
+    required: false
+    parse: "currency"
+  
+  TAX:
+    field: "tax"
+    type: "decimal"
+    required: false
+    parse: "currency"
+  
+  SHIPPING:
+    field: "shippingCost"
+    type: "decimal"
+    required: false
+    parse: "currency"
+  
+  PAYMENT_TERMS:
+    field: "paymentTerms"
+    type: "string"
+    required: false
+  
+  ORDER_REFERENCE:
+    field: "orderReference"
+    type: "string"
+    required: false
+  
+  VENDOR_TAX_ID:
+    field: "vendorTaxId"
+    type: "string"
+    required: false
+  
+  ACCOUNT_NUMBER:
+    field: "accountNumber"
+    type: "string"
+    required: false
+
+# Line item fields (repeatable, mapped to POLineItem table)
+line_item_mapping:
+  ITEM_DESCRIPTION:
+    field: "productName"
+    type: "string"
+    required: true
+  
+  SKU:
+    field: "sku"
+    type: "string"
+    required: true
+  
+  QUANTITY:
+    field: "quantity"
+    type: "integer"
+    required: true
+    parse: "numeric"
+  
+  UOM:
+    field: "unitOfMeasure"
+    type: "string"
+    required: false
+    default: "each"
+  
+  UNIT_PRICE:
+    field: "unitCost"
+    type: "decimal"
+    required: true
+    parse: "currency"
+  
+  LINE_TOTAL:
+    field: "totalCost"
+    type: "decimal"
+    required: true
+    parse: "currency"
+  
+  PACK_SIZE:
+    field: "packSize"
+    type: "string"
+    required: false
+
+# Confidence threshold settings
+confidence:
+  min_document_confidence: 0.70  # Minimum confidence for auto-processing
+  min_field_confidence: 0.60  # Minimum per-field confidence
+  min_line_item_confidence: 0.65  # Minimum line item confidence
+
+# Post-processing rules
+postprocessing:
+  # Validation rules
+  validate_totals: true  # Verify line totals = quantity * unit_price
+  validate_document_total: true  # Verify subtotal + tax + shipping = total
+  
+  # Normalization
+  normalize_dates: true
+  normalize_currency: true
+  normalize_phone_numbers: false
+  
+  # Entity linking
+  link_line_items_to_table_rows: true  # Group by row index
+  deduplicate_entities: true  # Remove duplicate extractions
+  
+  # Fuzzy matching thresholds
+  sku_match_threshold: 0.85
+  description_match_threshold: 0.75
+
+# Output JSON schema (example structure)
+output_schema:
+  purchase_order:
+    - number
+    - supplierName
+    - supplierAddress
+    - buyerName
+    - buyerAddress
+    - orderDate
+    - dueDate
+    - totalAmount
+    - currency
+    - subtotal
+    - tax
+    - shippingCost
+    - paymentTerms
+    - orderReference
+    - vendorTaxId
+    - accountNumber
+    - rawData  # Original OCR + annotations
+    - confidence
+  
+  line_items:
+    - sku
+    - productName
+    - quantity
+    - unitOfMeasure
+    - unitCost
+    - totalCost
+    - packSize
+    - confidence
+    - orderIndex  # Row number in table

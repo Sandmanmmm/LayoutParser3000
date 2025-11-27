@@ -1,0 +1,134 @@
+# Data Preparation Configuration
+# OCR and preprocessing settings for invoice/PO documents
+
+ocr:
+  # OCR Engine Selection
+  engine: "tesseract"  # Options: tesseract, azure_ocr, google_vision, aws_textract
+  
+  # Tesseract Configuration
+  tesseract:
+    lang: "eng"
+    config: "--oem 3 --psm 6"  # LSTM engine, assume uniform block of text
+    dpi: 300
+    
+  # Cloud OCR APIs (if using)
+  azure:
+    endpoint: null  # Set your Azure endpoint
+    key: null  # Set your API key
+  
+  google:
+    credentials_path: null  # Path to service account JSON
+  
+  aws:
+    region: "us-east-1"
+    access_key: null
+    secret_key: null
+  
+  # OCR Enhancement
+  preprocessing:
+    deskew: true
+    denoise: true
+    binarization: "adaptive"  # Options: adaptive, otsu, sauvola
+    resize_dpi: 300
+    
+  # OCR Quality Filtering
+  quality_threshold: 0.7  # Filter out low-confidence OCR results
+  min_word_confidence: 0.5
+
+# Annotation Format
+annotation:
+  format: "coco"  # Options: coco, labelme, funsd
+  
+  # Field mapping for invoices/POs
+  entity_types:
+    - "invoice_number"
+    - "purchase_order_number"
+    - "date"
+    - "due_date"
+    - "vendor_name"
+    - "vendor_address"
+    - "customer_name"
+    - "customer_address"
+    - "line_item_description"
+    - "line_item_quantity"
+    - "line_item_price"
+    - "subtotal"
+    - "tax"
+    - "total_amount"
+    - "payment_terms"
+  
+  # Table structure labels
+  table_labels:
+    - "table"
+    - "table_row"
+    - "table_column"
+    - "table_cell"
+    - "table_header"
+
+# Data Splitting
+data_split:
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Stratification
+  stratify_by: "document_type"  # Ensure balanced split across doc types
+  
+  # Holdout diversity requirements
+  ensure_vendor_diversity: true
+  ensure_template_diversity: true
+  min_samples_per_vendor: 3
+
+# Document Processing
+document:
+  # Image preprocessing
+  max_size: [1024, 1024]  # Max dimensions (width, height)
+  maintain_aspect_ratio: true
+  padding_color: [255, 255, 255]  # White padding
+  
+  # PDF handling
+  pdf_dpi: 300
+  convert_to_images: true
+  
+  # Multi-page handling
+  max_pages: 5
+  page_processing: "separate"  # Options: separate, concatenate
+
+# Quality Control
+quality_control:
+  # Document validation
+  min_text_length: 50  # Minimum characters
+  max_text_length: 10000
+  
+  # Annotation validation
+  validate_bbox: true  # Ensure bounding boxes are valid
+  validate_labels: true  # Check against label schema
+  
+  # OCR quality checks
+  check_text_alignment: true
+  check_missing_fields: true
+  required_fields: ["date", "total_amount"]  # Must be present
+
+# Output Format
+output:
+  format: "json"  # Output annotation format
+  include_images: false  # Save processed images separately
+  image_format: "png"
+  compression_quality: 95
+  
+  # Features to extract
+  features:
+    text: true
+    bbox: true
+    words: true
+    lines: true
+    blocks: true
+    layout_features: true  # Font size, style, position
+    visual_features: true  # Save image embeddings
+
+# Caching
+cache:
+  enabled: true
+  cache_dir: "./data/cache"
+  cache_ocr_results: true
+  cache_preprocessed_images: true
