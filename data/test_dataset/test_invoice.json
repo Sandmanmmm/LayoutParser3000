@@ -107,10 +107,10 @@
   "ner_tags": [
     "O",
     "O",
-    "B-INVOICE_NUMBER",
+    "B-DOCUMENT_NUMBER",
     "O",
     "O",
-    "B-ITEM_SKU",
+    "B-SKU",
     "B-ITEM_DESCRIPTION",
     "I-ITEM_DESCRIPTION"
   ],
@@ -196,10 +196,10 @@
     }
   ],
   "ground_truth": {
-    "INVOICE_NUMBER": "INV-1234",
+    "DOCUMENT_NUMBER": "INV-1234",
     "line_items": [
       {
-        "ITEM_SKU": "ABC-100",
+        "SKU": "ABC-100",
         "ITEM_DESCRIPTION": "Widget Pack"
       }
     ]
